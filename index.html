@@ -1,0 +1,2099 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>实训五 · 蜂鸣器案例 | PWM 驱动蜂鸣器交互式实训平台</title>
+<style>
+/* ============ 设计变量 ============ */
+:root{
+  --bg:#eef2f8;
+  --panel:#ffffff;
+  --ink:#152238;
+  --ink2:#465570;
+  --muted:#7c8aa2;
+  --line:#e3e9f4;
+  --brand:#2563eb;
+  --brand-2:#1d4ed8;
+  --brand-soft:#e9f0ff;
+  --teal:#0d9488;
+  --ok:#15a34a;
+  --ok-soft:#e7f7ed;
+  --warn:#d98200;
+  --warn-soft:#fff5e2;
+  --err:#dc2626;
+  --err-soft:#fdecec;
+  --code-bg:#0c1424;
+  --code-bg2:#111c30;
+  --code-line:#1c2942;
+  --code-ink:#cdd9ee;
+  --shadow:0 1px 2px rgba(18,38,73,.06),0 8px 24px rgba(18,38,73,.07);
+  --radius:14px;
+  --mono:"JetBrains Mono",Consolas,"Cascadia Mono","Courier New",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--ink);
+  font-size:14px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+button{font-family:inherit;font-size:inherit;cursor:pointer;border:none;background:none;color:inherit}
+h1,h2,h3,h4,p{margin:0}
+/* ============ 顶部栏 ============ */
+.topbar{
+  flex:0 0 62px;display:flex;align-items:center;gap:14px;
+  padding:0 20px;background:linear-gradient(180deg,#ffffff,#fbfcff);
+  border-bottom:1px solid var(--line);z-index:30;
+}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.brand-mark{
+  width:36px;height:36px;border-radius:11px;flex:0 0 auto;
+  background:linear-gradient(140deg,#2563eb,#0ea5e9);
+  display:grid;place-items:center;box-shadow:0 6px 14px rgba(37,99,235,.28);
+}
+.brand-txt{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.brand-txt b{font-size:15px;letter-spacing:.2px;white-space:nowrap}
+.brand-txt span{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.topbar-spacer{flex:1}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;
+  border-radius:999px;background:#f3f6fc;border:1px solid var(--line);
+  font-size:12px;color:var(--ink2);white-space:nowrap;
+}
+.pill i{width:7px;height:7px;border-radius:50%;background:var(--muted);display:block}
+.pill.on{background:var(--ok-soft);border-color:#bfe8cd;color:#0f7a37}
+.pill.on i{background:var(--ok);box-shadow:0 0 0 3px rgba(21,163,74,.14)}
+.pill.warn{background:var(--warn-soft);border-color:#f6dfb0;color:#9a6200}
+.pill.warn i{background:var(--warn)}
+.clock{font-family:var(--mono);font-size:12.5px;color:var(--ink2);padding-left:4px}
+/* ============ 布局 ============ */
+.layout{flex:1;display:grid;grid-template-columns:252px minmax(0,1fr);overflow:hidden}
+.side{
+  background:#fbfcff;border-right:1px solid var(--line);overflow:auto;padding:16px 12px 40px;
+}
+.side-hd{font-size:11px;letter-spacing:1.4px;color:var(--muted);font-weight:700;padding:4px 10px 10px;text-transform:uppercase}
+.nav{display:flex;flex-direction:column;gap:3px}
+.nav-item{
+  display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:10px;
+  text-align:left;width:100%;color:var(--ink2);transition:.16s;position:relative;
+}
+.nav-item:hover{background:#eff4ff}
+.nav-item .num{
+  flex:0 0 auto;width:21px;height:21px;border-radius:7px;display:grid;place-items:center;
+  background:#eaeff8;color:#7c8aa2;font-size:11.5px;font-weight:700;font-family:var(--mono);
+  margin-top:1px;transition:.16s;
+}
+.nav-item .t{display:flex;flex-direction:column;min-width:0}
+.nav-item .t b{font-size:13px;font-weight:600;color:var(--ink2);line-height:1.4}
+.nav-item .t small{font-size:11px;color:var(--muted);line-height:1.4}
+.nav-item.active{background:var(--brand-soft)}
+.nav-item.active .num{background:var(--brand);color:#fff}
+.nav-item.active .t b{color:var(--brand-2)}
+.nav-item.done .num{background:var(--ok);color:#fff}
+.nav-item.done .t b{color:var(--ink)}
+.nav-item.locked{opacity:.55}
+.nav-item .chk{position:absolute;right:8px;top:10px;width:13px;height:13px;color:var(--ok);display:none}
+.nav-item.done .chk{display:block}
+.side-foot{margin-top:16px;padding:12px 10px 0;border-top:1px dashed var(--line);display:flex;flex-direction:column;gap:8px}
+.side-note{font-size:11.5px;color:var(--muted);line-height:1.6}
+/* ============ 主区 ============ */
+.main{overflow:auto;padding:20px 24px 80px;scroll-behavior:smooth}
+.step{display:none;max-width:1000px;margin:0 auto}
+.step.active{display:block;animation:fadeUp .28s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* 卡片 */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
+.card-hd{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fff,#fbfcff)}
+.card-hd h2{font-size:15.5px;font-weight:700;letter-spacing:.2px}
+.card-hd .tag{
+  margin-left:auto;font-size:11px;padding:3px 9px;border-radius:999px;
+  background:var(--brand-soft);color:var(--brand-2);font-weight:600;white-space:nowrap;
+}
+.card-hd .tag.t2{background:#e9f7f6;color:#0b7a71}
+.card-bd{padding:16px 18px 18px}
+.lead{color:var(--ink2);font-size:13.5px;margin-bottom:12px}
+.lead b{color:var(--ink)}
+/* 任务书原文引用 */
+.quote{
+  border-left:3px solid #9dc0ff;background:#f7f9ff;border-radius:0 10px 10px 0;
+  padding:11px 14px;font-size:12.8px;color:#3d4c66;line-height:1.75;margin:12px 0;
+}
+.quote b{color:#1e3a8a}
+.quote .qh{font-size:11px;color:#7c8aa2;letter-spacing:1px;display:block;margin-bottom:4px;font-weight:700}
+/* 按钮 */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  height:38px;padding:0 18px;border-radius:10px;font-size:13.5px;font-weight:600;
+  transition:.16s;white-space:nowrap;border:1px solid transparent;
+}
+.btn svg{width:15px;height:15px}
+.btn.primary{background:linear-gradient(180deg,#2f6bf0,#2154d8);color:#fff;box-shadow:0 6px 16px rgba(37,99,235,.28)}
+.btn.primary:hover{filter:brightness(1.05);transform:translateY(-1px)}
+.btn.primary:disabled{background:#c9d5ea;color:#fff;box-shadow:none;cursor:not-allowed;transform:none}
+.btn.ghost{background:#fff;border-color:var(--line);color:var(--ink2)}
+.btn.ghost:hover{border-color:#b9c8e2;color:var(--brand-2);background:#f7faff}
+.btn.success{background:linear-gradient(180deg,#18b556,#0f9142);color:#fff;box-shadow:0 6px 16px rgba(21,163,74,.26)}
+.btn.danger{background:#fff;border-color:#f3c0c0;color:var(--err)}
+.btn.danger:hover{background:var(--err-soft)}
+.btn.tiny{height:28px;padding:0 11px;font-size:12px;border-radius:8px}
+.btn.tiny svg{width:12px;height:12px}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px dashed var(--line)}
+.actions .grow{flex:1}
+/* ============ 接线区 ============ */
+.scene{
+  background:radial-gradient(120% 130% at 50% -10%,#f4f8ff 0%,#eaf1fb 60%,#e4ecf8 100%);
+  border:1px solid var(--line);border-radius:12px;padding:4px 4px 0;margin-top:6px;
+  position:relative;overflow:hidden;
+}
+.scene svg{display:block;width:100%;height:auto}
+.port{cursor:pointer}
+.port .hit{fill:transparent}
+.port circle.dot{fill:#fff;stroke:#8fa8cc;stroke-width:2.2;transition:.16s}
+.port:hover circle.dot{stroke:var(--brand);r:8}
+.port.sel circle.dot{stroke:var(--brand);fill:#dbe8ff;stroke-width:3}
+.port.sel .ring{opacity:1}
+.port .ring{opacity:0;fill:none;stroke:var(--brand);stroke-width:1.6;stroke-dasharray:3 3;transition:.2s}
+.port.wired circle.dot{stroke:var(--ok);fill:#e8f9ef}
+.port-label{font-family:var(--mono);font-size:11.5px;fill:#5b6b86;pointer-events:none;user-select:none}
+.board-label{font-family:var(--sans);font-size:12.5px;font-weight:700;fill:#32496e;pointer-events:none}
+.board-sub{font-family:var(--mono);font-size:10px;fill:#8698b3;pointer-events:none}
+.wire{fill:none;stroke:#2f6bf0;stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 2px 3px rgba(37,99,235,.25))}
+.wire-wrap{fill:none;stroke:#1c3f8f;stroke-width:5.6;stroke-linecap:round;opacity:.14}
+.wire-bad{stroke:#dc2626}
+.wire-anim{stroke-dasharray:8 8;animation:dash 1s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-16}}
+.wire-hint{fill:none;stroke:#2f6bf0;stroke-width:2;stroke-dasharray:4 6;opacity:.55}
+.wiring-status{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.chip{
+  display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px;border-radius:999px;
+  background:#f5f7fc;border:1px solid var(--line);font-size:12.5px;color:var(--ink2);font-family:var(--mono);
+}
+.chip.on{background:var(--ok-soft);border-color:#bfe8cd;color:#0f7a37}
+.chip b{font-weight:700}
+/* ============ 参数计算 ============ */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.field{margin-bottom:14px}
+.field label{display:flex;justify-content:space-between;font-size:12.5px;font-weight:600;color:var(--ink2);margin-bottom:7px}
+.field label span{font-family:var(--mono);color:var(--brand-2);font-weight:700}
+input[type=range]{
+  -webkit-appearance:none;width:100%;height:6px;border-radius:99px;
+  background:linear-gradient(90deg,#2f6bf0 var(--p,50%),#dfe7f5 var(--p,50%));outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;
+  border:3px solid #2f6bf0;box-shadow:0 2px 6px rgba(37,99,235,.35);cursor:pointer;
+}
+.kv{width:100%;border-collapse:collapse;font-size:12.8px}
+.kv td{padding:7px 8px;border-bottom:1px solid #eff3fa}
+.kv td:first-child{color:var(--ink2);width:52%}
+.kv td:last-child{font-family:var(--mono);color:var(--ink);text-align:right;font-weight:600}
+.kv tr:last-child td{border-bottom:none}
+.kv .hl td:last-child{color:var(--brand-2)}
+.wave-box{background:#0c1424;border-radius:10px;padding:8px;margin-top:4px}
+.wave-box canvas{display:block;width:100%;height:112px}
+/* ============ 文件树 ============ */
+.tree{font-family:var(--mono);font-size:13px;background:#fbfcff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.tree .row{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px}
+.tree .row:hover{background:#f1f6ff}
+.tree .row.done{background:#f4fbf7}
+.tree .icn{width:15px;height:15px;flex:0 0 auto;color:#7c8aa2}
+.tree .row.done .icn{color:var(--ok)}
+.tree .name{color:var(--ink2)}
+.tree .row.done .name{color:var(--ink);font-weight:600}
+.tree .state{margin-left:auto;font-size:11px;color:var(--muted)}
+.tree .row.done .state{color:var(--ok)}
+.tree .cu{color:#9aa8bd;font-size:11.5px}
+/* ============ 代码编辑器 ============ */
+.editor{border:1px solid var(--code-line);border-radius:12px;overflow:hidden;background:var(--code-bg);box-shadow:0 10px 30px rgba(12,20,36,.18)}
+.editor-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--code-bg2);border-bottom:1px solid var(--code-line)}
+.tab{font-family:var(--mono);font-size:12px;color:#93a4c0;padding:4px 10px;border-radius:7px;background:#0a1120}
+.tab.active{color:#e6eeff;background:#1b2942;box-shadow:inset 0 -2px 0 #3b82f6}
+.editor-bar .sp{flex:1}
+.editor-body{position:relative;display:flex;max-height:420px;overflow:hidden}
+.gutter{
+  flex:0 0 46px;padding:10px 8px 10px 0;text-align:right;
+  font-family:var(--mono);font-size:12.5px;line-height:21px;color:#3f5477;
+  background:#0a1120;user-select:none;overflow:hidden;border-right:1px solid #16213a;
+}
+.gutter div{height:21px}
+.gutter div.err{color:#ff8b8b}
+#code{
+  flex:1;border:none;outline:none;resize:none;background:var(--code-bg);color:var(--code-ink);
+  font-family:var(--mono);font-size:12.5px;line-height:21px;padding:10px 12px;
+  height:400px;overflow:auto;tab-size:4;white-space:pre;caret-color:#5eb0ff;
+}
+#code::selection{background:#1d4ed855}
+/* 检查结果 */
+.check{border:1px solid var(--line);border-top:none;border-radius:0 0 12px 12px;background:#fff;padding:0;overflow:hidden;display:none}
+.check.show{display:block}
+.check-hd{display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:12.5px;font-weight:700;background:#f8faff;border-bottom:1px solid var(--line)}
+.check-hd .st{font-family:var(--mono);font-size:11.5px;padding:2px 8px;border-radius:999px;font-weight:700}
+.st.ok{background:var(--ok-soft);color:#0f7a37}
+.st.bad{background:var(--err-soft);color:#b91c1c}
+.st.warn{background:var(--warn-soft);color:#9a6200}
+.issues{max-height:250px;overflow:auto}
+.issue{display:flex;gap:10px;padding:9px 14px;border-bottom:1px solid #f1f4fa;font-size:12.5px;line-height:1.6}
+.issue:last-child{border-bottom:none}
+.issue .lvl{flex:0 0 auto;font-family:var(--mono);font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:5px;height:19px;display:flex;align-items:center;margin-top:1px}
+.issue.error .lvl{background:var(--err-soft);color:#b91c1c}
+.issue.warning .lvl{background:var(--warn-soft);color:#9a6200}
+.issue.info .lvl{background:var(--brand-soft);color:var(--brand-2)}
+.issue .body{min-width:0}
+.issue .body b{display:block;color:var(--ink);font-weight:600}
+.issue .body small{color:var(--muted);font-family:var(--mono);font-size:11px}
+.issue .loc{font-family:var(--mono);font-size:11px;color:#9aa8bd;margin-left:auto;white-space:nowrap}
+/* ============ 终端 ============ */
+.term{
+  background:#080e1a;border:1px solid #17233b;border-radius:12px;overflow:hidden;
+  box-shadow:0 10px 30px rgba(8,14,26,.2);margin-top:14px;
+}
+.term-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#0d1626;border-bottom:1px solid #17233b}
+.term-bar .dot{width:9px;height:9px;border-radius:50%}
+.term-bar .dot.r{background:#ff5f57}.term-bar .dot.y{background:#febc2e}.term-bar .dot.g{background:#28c840}
+.term-bar span{font-family:var(--mono);font-size:11.5px;color:#6b7f9e;margin-left:6px}
+.term-body{
+  font-family:var(--mono);font-size:12px;line-height:1.85;padding:12px 14px;height:246px;
+  overflow:auto;color:#a9bbd4;white-space:pre-wrap;word-break:break-all;
+}
+.term-body .c-cmd{color:#7fe3a8}
+.term-body .c-info{color:#8ea3c2}
+.term-body .c-ok{color:#4ade80}
+.term-body .c-warn{color:#fbbf24}
+.term-body .c-err{color:#f87171}
+.term-body .c-dim{color:#54688a}
+.term-body .c-hl{color:#93c5fd}
+.cursor{display:inline-block;width:7px;height:14px;background:#7fe3a8;vertical-align:-2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+/* ============ 进度条 ============ */
+.prog{height:8px;border-radius:99px;background:#e6ecf7;overflow:hidden;margin:10px 0 4px}
+.prog i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#2f6bf0,#22c1a4);transition:width .3s}
+.prog-txt{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+/* ============ 虚拟板卡 ============ */
+.board-stage{
+  display:grid;grid-template-columns:1fr 260px;gap:18px;align-items:stretch;
+}
+.vboard{
+  position:relative;border-radius:14px;padding:16px;
+  background:linear-gradient(160deg,#16233c,#0f1a2e 70%);
+  border:1px solid #24334f;overflow:hidden;min-height:250px;
+  display:flex;align-items:center;justify-content:center;
+}
+.vboard::after{
+  content:"";position:absolute;inset:0;
+  background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,.055) 1px,transparent 0);
+  background-size:14px 14px;pointer-events:none;
+}
+.vboard .badge{
+  position:absolute;top:12px;left:14px;font-family:var(--mono);font-size:10.5px;
+  color:#7fa6d8;letter-spacing:1px;z-index:2;
+}
+.buzzer{
+  position:relative;width:118px;height:118px;border-radius:50%;
+  background:radial-gradient(circle at 38% 32%,#4b5b78,#1a2436 62%,#0d1524);
+  border:2px solid #33445f;display:grid;place-items:center;z-index:2;
+  box-shadow:inset 0 0 24px rgba(0,0,0,.6);
+}
+.buzzer .hole{
+  position:absolute;width:26px;height:26px;border-radius:50%;background:#060b14;
+  box-shadow:inset 0 0 8px #000;
+}
+.buzzer .rings{position:absolute;inset:0;border-radius:50%}
+.buzzer.ringing{border-color:#3b82f6;box-shadow:inset 0 0 24px rgba(0,0,0,.6),0 0 0 4px rgba(59,130,246,.18),0 0 34px rgba(59,130,246,.45)}
+.buzzer.ringing .rings::before,.buzzer.ringing .rings::after{
+  content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid rgba(96,165,250,.55);
+  animation:ripple 1.2s ease-out infinite;
+}
+.buzzer.ringing .rings::after{animation-delay:.6s}
+@keyframes ripple{0%{transform:scale(.92);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+.sound-waves{position:absolute;z-index:1;opacity:0;transition:.3s}
+.sound-waves.on{opacity:1}
+.wave-arc{fill:none;stroke:#60a5fa;stroke-width:2.4;stroke-linecap:round;animation:arc 1.4s ease-out infinite}
+.wave-arc:nth-child(2){animation-delay:.35s}
+.wave-arc:nth-child(3){animation-delay:.7s}
+@keyframes arc{0%{opacity:0;transform:translateX(0)}40%{opacity:.9}100%{opacity:0;transform:translateX(14px)}}
+.vside{display:flex;flex-direction:column;gap:10px}
+.meter{background:#0f1a2e;border:1px solid #24334f;border-radius:10px;padding:10px 12px}
+.meter .lb{font-family:var(--mono);font-size:10.5px;color:#7fa6d8;letter-spacing:.6px;margin-bottom:6px}
+.meter .val{font-family:var(--mono);font-size:17px;color:#e6eeff;font-weight:700}
+.meter .val small{font-size:11px;color:#8098bb;font-weight:400;margin-left:3px}
+.bar{height:6px;border-radius:99px;background:#1c2942;overflow:hidden;margin-top:7px}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#22d3a5,#3b82f6);transition:width .15s}
+.locked-hint{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  padding:36px 20px;border:1.5px dashed #c8d6ec;border-radius:12px;background:#fbfcff;text-align:center;color:var(--muted);
+}
+.locked-hint svg{width:30px;height:30px;color:#a9bad4}
+.locked-hint b{color:var(--ink2);font-size:13.5px}
+/* 串口日志 */
+.serial{background:#080e1a;border:1px solid #17233b;border-radius:12px;padding:12px 14px;font-family:var(--mono);font-size:12px;line-height:1.9;color:#9fb3d1;height:218px;overflow:auto;white-space:pre-wrap}
+.serial .ok{color:#4ade80}.serial .dim{color:#5c718f}.serial .hl{color:#93c5fd}.serial .warn{color:#fbbf24}
+/* ============ 总结表 ============ */
+.score{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.score .item{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:#fbfcff}
+.score .item.ok{background:#f4fbf7;border-color:#c9ecd8}
+.score .item .nm{font-size:12.8px;color:var(--ink2)}
+.score .item .sc{margin-left:auto;font-family:var(--mono);font-weight:700;color:var(--ok);font-size:13px}
+.score .item .sc.zero{color:#b6c2d6}
+.total{
+  display:flex;align-items:center;gap:14px;margin-top:14px;padding:14px 16px;border-radius:12px;
+  background:linear-gradient(100deg,#f0f6ff,#eefaf6);border:1px solid #d7e6ff;
+}
+.total .num{font-family:var(--mono);font-size:30px;font-weight:800;color:var(--brand-2);line-height:1}
+.total .num small{font-size:13px;color:var(--muted);font-weight:600}
+.total .txt{font-size:12.6px;color:var(--ink2);line-height:1.6}
+table.record{width:100%;border-collapse:collapse;font-size:12.8px;margin-top:6px}
+table.record th,table.record td{border:1px solid #e4eaf4;padding:8px 10px;text-align:left}
+table.record th{background:#f6f9ff;color:var(--ink2);font-weight:600;width:34%}
+table.record td{font-family:var(--mono)}
+/* toast */
+.toast-wrap{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:99;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{
+  padding:9px 16px;border-radius:10px;background:#111c30;color:#e8f0ff;font-size:13px;
+  box-shadow:0 10px 26px rgba(10,20,40,.28);animation:toastIn .22s ease;display:flex;gap:8px;align-items:center;
+}
+.toast.bad{background:#7f1d1d}
+.toast.good{background:#0f5132}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+/* misc */
+.hint-inline{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dotline{height:1px;background:var(--line);margin:14px 0}
+.ok-txt{color:var(--ok);font-weight:600}
+.err-txt{color:var(--err);font-weight:600}
+kbd{font-family:var(--mono);font-size:11.5px;background:#eef2fa;border:1px solid #dbe3f0;border-bottom-width:2px;border-radius:5px;padding:1px 5px;color:#43536e}
+@media (max-width:1080px){
+  .layout{grid-template-columns:1fr}
+  .side{display:none}
+  .board-stage{grid-template-columns:1fr}
+  .grid2{grid-template-columns:1fr}
+}
+@media print{
+  .topbar,.side,.actions,.toast-wrap{display:none!important}
+  body{overflow:visible;background:#fff}
+  .layout{display:block;overflow:visible}
+  .main{overflow:visible;padding:0}
+  .step.active{page-break-after:always}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>
+      </svg>
+    </div>
+    <div class="brand-txt">
+      <b>实训五 · 蜂鸣器案例</b>
+      <span>PWM 驱动蜂鸣器 · 全流程交互式实训平台</span>
+    </div>
+  </div>
+  <div class="topbar-spacer"></div>
+  <span class="pill" id="pillWire"><i></i>引脚未连接</span>
+  <span class="pill" id="pillBuild"><i></i>未编译</span>
+  <span class="pill" id="pillRun"><i></i>未运行</span>
+  <span class="clock" id="clock">00:00:00</span>
+</header>
+
+<div class="layout">
+  <aside class="side">
+    <div class="side-hd">实训流程</div>
+    <div class="nav" id="nav"></div>
+    <div class="side-foot">
+      <button class="btn ghost tiny" id="btnResetAll" style="justify-content:center">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+        重置全部进度
+      </button>
+      <div class="side-note">提示：每一步都对应实训指导任务书中的一个环节，完成后才会解锁下一步。</div>
+    </div>
+  </aside>
+
+  <main class="main" id="main">
+    <!-- ========== 步骤 1 ========== -->
+    <section class="step" data-step="1">
+      <div class="card">
+        <div class="card-hd">
+          <h2>步骤 1 · 任务导入与硬件连接</h2>
+          <span class="tag">任务书 1. 基础知识</span>
+        </div>
+        <div class="card-bd">
+          <p class="lead">本实训使用 <b>PWM（脉冲宽度调制）</b> 控制交通灯板上的蜂鸣器鸣响。动手写代码前，先要搞清楚“板子上的线是怎么走的”——这是整个实训最容易出错、也最容易被忽略的一步。</p>
+          <div class="quote">
+            <span class="qh">任务书原文</span>
+            <b>功能介绍：</b>使用 PWM 控制蜂鸣器鸣响。<br>
+            <b>软件概述：</b>PWM 是脉冲宽度调制缩写，通过调节占空比的变化来调节信号、能量等的变化。占空比就是指在一个周期内，信号处于高电平的时间占据整个信号周期的百分比。<br>
+            <b>硬件概述：</b>核心板、交通灯板。通过板端丝印可以看出交通灯板的蜂鸣器 BEEP 与底板的 A9 相连，底板左边 A9 对应核心板 GPIO 9。
+          </div>
+
+          <div class="scene">
+            <svg id="wireSvg" viewBox="0 0 720 340" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="pcb1" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#f6faff"/><stop offset="1" stop-color="#e8f0fb"/>
+                </linearGradient>
+                <linearGradient id="pcb2" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#f3fbf7"/><stop offset="1" stop-color="#e3f4ea"/>
+                </linearGradient>
+                <linearGradient id="pcb3" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#fffaef"/><stop offset="1" stop-color="#fdf0d8"/>
+                </linearGradient>
+              </defs>
+
+              <!-- 核心板 -->
+              <rect x="30" y="26" width="210" height="150" rx="14" fill="url(#pcb1)" stroke="#c3d4ec" stroke-width="1.5"/>
+              <text class="board-label" x="46" y="50">核心板（主控）</text>
+              <text class="board-sub" x="46" y="68">Hi3861 · GPIO 排针</text>
+              <rect x="52" y="86" width="86" height="52" rx="6" fill="#dfe9f7" stroke="#c3d4ec"/>
+              <text class="board-sub" x="95" y="116" text-anchor="middle">主控芯片</text>
+
+              <!-- 交通灯板 -->
+              <rect x="480" y="26" width="210" height="150" rx="14" fill="url(#pcb2)" stroke="#bfe0cb" stroke-width="1.5"/>
+              <text class="board-label" x="496" y="50">交通灯板</text>
+              <text class="board-sub" x="496" y="68">LED / KEY / BEEP</text>
+              <circle cx="600" cy="118" r="20" fill="#1f2937" stroke="#111827" stroke-width="2"/>
+              <circle cx="600" cy="118" r="7" fill="#0b0f17"/>
+              <text class="board-sub" x="600" y="156" text-anchor="middle">BEEP</text>
+
+              <!-- 底板 -->
+              <rect x="180" y="238" width="360" height="86" rx="14" fill="url(#pcb3)" stroke="#e7d3a8" stroke-width="1.5"/>
+              <text class="board-sub" x="196" y="310">底板（转接板）</text>
+
+              <!-- 连线层 -->
+              <g id="wireLayer"></g>
+
+              <!-- 核心板引脚 -->
+              <g class="port" data-id="p-g8"><circle class="hit" cx="240" cy="80" r="17"/><circle class="ring" cx="240" cy="80" r="13"/><circle class="dot" cx="240" cy="80" r="7"/></g>
+              <text class="port-label" x="228" y="84" text-anchor="end">GPIO8</text>
+              <g class="port" data-id="p-g9"><circle class="hit" cx="240" cy="110" r="17"/><circle class="ring" cx="240" cy="110" r="13"/><circle class="dot" cx="240" cy="110" r="7"/></g>
+              <text class="port-label" x="228" y="114" text-anchor="end">GPIO9</text>
+              <g class="port" data-id="p-g10"><circle class="hit" cx="240" cy="140" r="17"/><circle class="ring" cx="240" cy="140" r="13"/><circle class="dot" cx="240" cy="140" r="7"/></g>
+              <text class="port-label" x="228" y="144" text-anchor="end">GPIO10</text>
+
+              <!-- 底板插孔 -->
+              <g class="port" data-id="p-a8"><circle class="hit" cx="250" cy="238" r="17"/><circle class="ring" cx="250" cy="238" r="13"/><circle class="dot" cx="250" cy="238" r="7"/></g>
+              <text class="port-label" x="250" y="266" text-anchor="middle">A8</text>
+              <g class="port" data-id="p-a9"><circle class="hit" cx="360" cy="238" r="17"/><circle class="ring" cx="360" cy="238" r="13"/><circle class="dot" cx="360" cy="238" r="7"/></g>
+              <text class="port-label" x="360" y="266" text-anchor="middle">A9</text>
+              <g class="port" data-id="p-a10"><circle class="hit" cx="470" cy="238" r="17"/><circle class="ring" cx="470" cy="238" r="13"/><circle class="dot" cx="470" cy="238" r="7"/></g>
+              <text class="port-label" x="470" y="266" text-anchor="middle">A10</text>
+
+              <!-- 交通灯板引脚 -->
+              <g class="port" data-id="p-beep"><circle class="hit" cx="480" cy="80" r="17"/><circle class="ring" cx="480" cy="80" r="13"/><circle class="dot" cx="480" cy="80" r="7"/></g>
+              <text class="port-label" x="492" y="84">BEEP</text>
+              <g class="port" data-id="p-key"><circle class="hit" cx="480" cy="110" r="17"/><circle class="ring" cx="480" cy="110" r="13"/><circle class="dot" cx="480" cy="110" r="7"/></g>
+              <text class="port-label" x="492" y="114">KEY</text>
+              <g class="port" data-id="p-led"><circle class="hit" cx="480" cy="140" r="17"/><circle class="ring" cx="480" cy="140" r="13"/><circle class="dot" cx="480" cy="140" r="7"/></g>
+              <text class="port-label" x="492" y="144">LED</text>
+            </svg>
+          </div>
+
+          <div class="wiring-status">
+            <span class="chip" id="pG9A9">① 核心板 GPIO9 → 底板 A9</span>
+            <span class="chip" id="pA9BEEP">② 底板 A9 → 交通灯板 BEEP</span>
+          </div>
+          <p class="hint-inline" style="margin-top:10px">操作方式：先点一个焊点/插孔，再点另一个即可接线；单击端口取消选择，<b>右键</b>端口可断开该点连线。请按任务书给出的对应关系连接。</p>
+
+          <div class="actions">
+            <button class="btn ghost" id="btnWireReset">清空接线</button>
+            <div class="grow"></div>
+            <button class="btn primary" id="btnStep1Next" disabled>进入下一步</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 步骤 2 ========== -->
+    <section class="step" data-step="2">
+      <div class="card">
+        <div class="card-hd">
+          <h2>步骤 2 · PWM 原理与驱动参数计算</h2>
+          <span class="tag">任务书 1. 软件概述 / 2. 接口说明</span>
+        </div>
+        <div class="card-bd">
+          <p class="lead">蜂鸣器要响，本质上是让 GPIO9 输出一路 <b>方波</b>：方波的<b>频率</b>决定音调高低，<b>占空比</b>决定音量大小。底层驱动里我们填的不是频率，而是“高电平计数”和“低电平计数”，所以必须先算清楚。</p>
+          <div class="grid2">
+            <div>
+              <div class="field">
+                <label>目标频率 <span id="freqVal">2700 Hz</span></label>
+                <input type="range" id="freqRange" min="200" max="6000" step="50" value="2700">
+              </div>
+              <div class="field">
+                <label>目标占空比 <span id="dutyVal">50 %</span></label>
+                <input type="range" id="dutyRange" min="1" max="99" step="1" value="50">
+              </div>
+              <table class="kv">
+                <tr><td>PWM 计数时钟</td><td>32 000 000 Hz</td></tr>
+                <tr><td>周期计数值 high + low</td><td id="kvPeriod">—</td></tr>
+                <tr class="hl"><td>pwm_config_t.high_time</td><td id="kvHigh">—</td></tr>
+                <tr class="hl"><td>pwm_config_t.low_time</td><td id="kvLow">—</td></tr>
+                <tr><td>反算实际频率</td><td id="kvFreqReal">—</td></tr>
+                <tr><td>反算实际占空比</td><td id="kvDutyReal">—</td></tr>
+              </table>
+              <p class="hint-inline" style="margin-top:10px">
+                公式：<kbd>period = 32MHz ÷ f</kbd> <kbd>high = period × 占空比</kbd> <kbd>low = period − high</kbd>
+              </p>
+            </div>
+            <div>
+              <div class="wave-box"><canvas id="calcWave" width="640" height="112"></canvas></div>
+              <div class="quote" style="margin-top:12px">
+                <span class="qh">实训建议参数</span>
+                蜂鸣器谐振频率约 <b>2.7 kHz</b>、占空比 <b>50 %</b> 时声音最清脆响亮。频率过低（&lt; 500 Hz）声音沉闷，过高（&gt; 5 kHz）刺耳甚至超出人耳敏感范围。
+              </div>
+              <div id="paramHint" class="hint-inline"></div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn ghost" id="btnParamReset">恢复建议值</button>
+            <div class="grow"></div>
+            <button class="btn primary" id="btnParamConfirm">确定使用该参数</button>
+            <button class="btn primary" id="btnStep2Next" style="display:none">进入下一步</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 步骤 3 ========== -->
+    <section class="step" data-step="3">
+      <div class="card">
+        <div class="card-hd">
+          <h2>步骤 3 · 搭建工程与文件结构</h2>
+          <span class="tag">任务书 硬件/软件准备</span>
+        </div>
+        <div class="card-bd">
+          <p class="lead">在 SDK 的应用目录下新建 <b>beep</b> 工程：源文件 <b>beep.c</b>、编译脚本 <b>BUILD.gn</b>，并把组件注册进上层应用列表。点“创建”把三个文件建立起来。</p>
+          <div class="grid2">
+            <div>
+              <div class="tree">
+                <div class="row"><svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="name cu">applications/sample/wifi-iot/app/</span></div>
+                <div class="row" data-file="beep.c">
+                  <svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v5h5"/><path d="M19 8v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7z"/></svg>
+                  <span class="name">beep/beep.c</span>
+                  <span class="state">未创建</span>
+                  <button class="btn tiny ghost" data-create="beep.c">创建</button>
+                </div>
+                <div class="row" data-file="BUILD.gn">
+                  <svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v5h5"/><path d="M19 8v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7z"/></svg>
+                  <span class="name">beep/BUILD.gn</span>
+                  <span class="state">未创建</span>
+                  <button class="btn tiny ghost" data-create="BUILD.gn">创建</button>
+                </div>
+                <div class="row" data-file="app/BUILD.gn">
+                  <svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v5h5"/><path d="M19 8v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7z"/></svg>
+                  <span class="name">app/BUILD.gn（注册组件）</span>
+                  <span class="state">未创建</span>
+                  <button class="btn tiny ghost" data-create="app/BUILD.gn">创建</button>
+                </div>
+              </div>
+              <p class="hint-inline" style="margin-top:10px">点击文件名可查看已创建的模板内容。</p>
+            </div>
+            <div>
+              <div class="editor" style="box-shadow:none">
+                <div class="editor-bar">
+                  <span class="tab active" id="filePreviewTitle">未选择文件</span>
+                </div>
+                <div style="background:#0c1424;max-height:262px;overflow:auto">
+                  <pre id="filePreviewCode" style="margin:0;padding:12px 14px;font-family:var(--mono);font-size:12px;line-height:1.75;color:#9fb3d1;white-space:pre-wrap">点击左侧文件查看模板内容…</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn ghost" id="btnCreateAll">一键生成工程框架</button>
+            <div class="grow"></div>
+            <button class="btn primary" id="btnStep3Next" disabled>进入编码环节</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 步骤 4 ========== -->
+    <section class="step" data-step="4">
+      <div class="card">
+        <div class="card-hd">
+          <h2>步骤 4 · 编写驱动代码并提交</h2>
+          <span class="tag">任务书 2. 接口 API 介绍</span>
+        </div>
+        <div class="card-bd">
+          <p class="lead">在 <b>beep.c</b> 中完成蜂鸣器驱动：引脚复用为 PWM → 配置 pwm_config_t → 打开通道 → 启动输出。写完点 <b>提交代码</b>，平台会做一次静态检查（语法 / API 调用 / 参数合法性）。</p>
+          <div class="quote">
+            <span class="qh">接口速查（任务书 2.1 / 2.2 / 2.3）</span>
+            <b>uapi_pwm_open(uint8_t channel, const pwm_config_t *cfg)</b> — 打开具有指定配置的 PWM 设备<br>
+            <b>uapi_pwm_close(uint8_t channel)</b> — 关闭指定的 PWM<br>
+            <b>uapi_pwm_register_interrupt(uint8_t channel, pwm_callback_t callback)</b> — 为 PWM 注册中断回调<br>
+            依赖头文件：<b>include\driver\pwm.h</b>；返回值 <b>ERRCODE_SUCC</b> 表示成功，Other 表示失败
+          </div>
+
+          <div class="editor">
+            <div class="editor-bar">
+              <span class="tab active">beep.c</span>
+              <span class="tab" style="opacity:.5">BUILD.gn</span>
+              <div class="sp"></div>
+              <span id="charCount" style="font-family:var(--mono);font-size:11px;color:#6b7f9e">0 行</span>
+              <button class="btn tiny ghost" id="btnFillRef" style="background:#1b2942;border-color:#24334f;color:#c7d6ee">填入参考代码</button>
+              <button class="btn tiny ghost" id="btnResetCode" style="background:#1b2942;border-color:#24334f;color:#c7d6ee">清空</button>
+            </div>
+            <div class="editor-body">
+              <div class="gutter" id="gutter"><div>1</div></div>
+              <textarea id="code" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="/* 在此编写 beep.c —— 提示：先 #include &quot;pwm.h&quot;，再将 GPIO9 复用为 PWM 功能 */"></textarea>
+            </div>
+          </div>
+          <div class="check" id="checkPanel">
+            <div class="check-hd">
+              <span>静态检查结果</span>
+              <span class="st ok" id="checkStatus">0 错误</span>
+              <span style="margin-left:auto;font-weight:400;color:var(--muted);font-size:11.5px" id="checkMeta"></span>
+            </div>
+            <div class="issues" id="issues"></div>
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" id="btnSubmit">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 2 11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+              提交代码
+            </button>
+            <button class="btn ghost" id="btnSaveDraft">保存草稿</button>
+            <div class="grow"></div>
+            <button class="btn primary" id="btnStep4Next" disabled>进入编译</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 步骤 5 ========== -->
+    <section class="step" data-step="5">
+      <div class="card">
+        <div class="card-hd">
+          <h2>步骤 5 · 编译工程</h2>
+          <span class="tag t2">构建系统</span>
+        </div>
+        <div class="card-bd">
+          <p class="lead">工程在 SDK 顶层目录执行 <b>python build.py wifiiot</b>（使用 DevEco / hb 时等价于 <kbd>hb build -f</kbd>）。编译成功后会生成可烧录的 <b>Hi3861_wifiiot_app_allinone.bin</b>。</p>
+          <div class="prog"><i id="progBuild"></i></div>
+          <div class="prog-txt"><span id="progBuildTxt">等待编译…</span><span id="progBuildPct">0%</span></div>
+          <div class="term">
+            <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span>构建终端 — build log</span></div>
+            <div class="term-body" id="termBuild"><span class="c-dim">// 点击下方“开始编译”执行构建</span>
+<span class="cursor"></span></div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" id="btnCompile">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v4"/><path d="m5 5 3 3"/><path d="M2 12h4"/><circle cx="12" cy="13" r="4"/><path d="M4 21h16"/></svg>
+              开始编译
+            </button>
+            <div class="grow"></div>
+            <button class="btn primary" id="btnStep5Next" disabled>进入烧录</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 步骤 6 ========== -->
+    <section class="step" data-step="6">
+      <div class="card">
+        <div class="card-hd">
+          <h2>步骤 6 · 烧录固件</h2>
+          <span class="tag t2">HiBurn / DevEco Device Tool</span>
+        </div>
+        <div class="card-bd">
+          <p class="lead">用 USB 线把核心板接到电脑，选择串口（如 COM3）与波特率 <b>921600</b>，把编译产物烧写到 Flash。烧录时先按住 <b>BOOT</b> 再复位进入下载模式。</p>
+          <div class="prog"><i id="progFlash"></i></div>
+          <div class="prog-txt"><span id="progFlashTxt">等待烧录…</span><span id="progFlashPct">0%</span></div>
+          <div class="term">
+            <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span>烧录终端 — flashing</span></div>
+            <div class="term-body" id="termFlash"><span class="c-dim">// 点击下方“开始烧录”写入固件</span>
+<span class="cursor"></span></div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" id="btnFlash">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+              开始烧录
+            </button>
+            <div class="grow"></div>
+            <button class="btn primary" id="btnStep6Next" disabled>进入运行验证</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 步骤 7 ========== -->
+    <section class="step" data-step="7">
+      <div class="card">
+        <div class="card-hd">
+          <h2>步骤 7 · 上电运行与现象验证</h2>
+          <span class="tag">虚拟蜂鸣器</span>
+        </div>
+        <div class="card-bd">
+          <div id="lockRun" class="locked-hint" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <b>虚拟蜂鸣器尚未解锁</b>
+            <span style="font-size:12.5px">必须先“提交代码 → 编译通过 → 烧录成功”，硬件才具备运行条件。</span>
+            <button class="btn ghost tiny" id="btnGoCompile" style="margin-top:4px">回到编译步骤</button>
+          </div>
+
+          <div id="runStage" style="display:none">
+            <p class="lead">按下核心板 <b>RESET</b>（或点击下方“运行程序”），板子从 Flash 启动应用，GPIO9 输出 PWM 方波，蜂鸣器鸣响。下方虚拟板卡会实时还原输出波形与声音。</p>
+            <div class="board-stage">
+              <div class="vboard">
+                <span class="badge">Hi3861 · TRAFFIC LIGHT BOARD · A9 → GPIO9</span>
+                <svg class="sound-waves" id="wavesEl" width="120" height="120" viewBox="0 0 120 120" style="left:calc(50% + 52px);top:50%;transform:translateY(-50%)">
+                  <path class="wave-arc" d="M20 60a26 26 0 0 1 0 0" style="display:none"/>
+                  <path class="wave-arc" d="M14 34a34 34 0 0 1 0 52"/>
+                  <path class="wave-arc" d="M10 26a44 44 0 0 1 0 68"/>
+                  <path class="wave-arc" d="M6 18a54 54 0 0 1 0 84"/>
+                </svg>
+                <div class="buzzer" id="buzzerEl">
+                  <div class="rings"></div>
+                  <div class="hole"></div>
+                </div>
+              </div>
+              <div class="vside">
+                <div class="meter">
+                  <div class="lb">输出频率</div>
+                  <div class="val" id="mFreq">—<small>Hz</small></div>
+                </div>
+                <div class="meter">
+                  <div class="lb">占空比</div>
+                  <div class="val" id="mDuty">—<small>%</small></div>
+                </div>
+                <div class="meter">
+                  <div class="lb">音量（响度）</div>
+                  <div class="val" id="mVol">0<small>dB</small></div>
+                  <div class="bar"><i id="volBar"></i></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="wave-box" style="margin-top:14px">
+              <canvas id="scope" width="900" height="130"></canvas>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap">
+              <button class="btn primary" id="btnBeep">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+                运行程序（鸣响 3 次）
+              </button>
+              <button class="btn ghost" id="btnBeepLoop">持续鸣响 / 停止</button>
+              <span class="hint-inline" id="audioHint">声音由浏览器 Web Audio 通过本机扬声器（或耳机）播放，等效还原蜂鸣器音调。</span>
+            </div>
+
+            <div class="term" style="margin-top:14px">
+              <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span>串口监视器 — COM3 115200</span></div>
+              <div class="serial" id="serial"><span class="dim">// 复位设备后开始输出日志</span></div>
+            </div>
+
+            <div class="actions">
+              <div class="grow"></div>
+              <button class="btn primary" id="btnStep7Next" disabled>完成验证，进入总结</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 步骤 8 ========== -->
+    <section class="step" data-step="8">
+      <div class="card">
+        <div class="card-hd">
+          <h2>步骤 8 · 实训记录与自检</h2>
+          <span class="tag t2">结果归档</span>
+        </div>
+        <div class="card-bd">
+          <p class="lead">平台自动记录你在每个环节的操作结果，形成实训自检清单与关键参数记录，可直接打印或导出，粘贴进实训报告书。</p>
+          <div class="score" id="scoreGrid"></div>
+          <div class="total">
+            <div class="num" id="totalScore">0<small> / 100</small></div>
+            <div class="txt" id="totalTxt">完成前 7 个步骤后自动计算成绩。</div>
+          </div>
+
+          <div class="dotline"></div>
+          <h3 style="font-size:14px;margin-bottom:8px">关键参数与现象记录</h3>
+          <table class="record">
+            <tr><th>控制引脚 / PWM 通道</th><td>GPIO9 / PWM 通道 0（底板 A9 → 交通灯板 BEEP）</td></tr>
+            <tr><th>PWM 计数时钟</th><td>32 000 000 Hz</td></tr>
+            <tr><th>pwm_config_t.high_time</th><td id="recHigh">—</td></tr>
+            <tr><th>pwm_config_t.low_time</th><td id="recLow">—</td></tr>
+            <tr><th>实际输出频率 / 占空比</th><td id="recFreq">—</td></tr>
+            <tr><th>运行现象</th><td id="recPhen">—</td></tr>
+            <tr><th>编译产物</th><td>out/wifiiot/Hi3861_wifiiot_app_allinone.bin（约 652 KB）</td></tr>
+          </table>
+
+          <div class="actions">
+            <button class="btn ghost" id="btnPrint">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9V2h12v7"/><rect x="6" y="14" width="12" height="8"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/></svg>
+              打印 / 导出为 PDF
+            </button>
+            <div class="grow"></div>
+            <span class="hint-inline">实训报告书（Word）与本页配套提交</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+<script>
+(function () {
+  'use strict';
+
+  /* =====================================================================
+   *  一、纯逻辑层：代码静态分析（模拟编译器）
+   * ===================================================================== */
+  var PWM_CLK = 32000000;
+  var BEEP_HASH = { total: 0, ok: 0 };
+
+  var REF_CODE = String.raw`/*
+ * 实训五 蜂鸣器案例 —— beep.c
+ * 硬件：核心板 GPIO9 -> 底板 A9 -> 交通灯板 BEEP
+ * 原理：GPIO9 复用为 PWM0 输出方波，驱动交通灯板上的无源蜂鸣器
+ */
+#include <stdio.h>
+#include <unistd.h>
+#include "cmsis_os2.h"
+#include "iot_gpio_ex.h"
+#include "pwm.h"                 /* 任务书 2.x：uapi_pwm_open / uapi_pwm_close */
+#include "errcode.h"
+
+#define BEEP_PIN         9        /* 核心板 GPIO9，对应底板 A9 */
+#define BEEP_PIN_MODE    1        /* 引脚复用模式：PWM 功能 */
+#define BEEP_CHANNEL     0        /* 使用 PWM 通道 0 */
+#define BEEP_GROUP       0        /* PWM 输出组 0 */
+#define PWM_CLK_HZ       32000000UL
+#define BEEP_FREQ_HZ     2700     /* 蜂鸣器谐振频率，声音最清脆 */
+#define BEEP_DUTY        50       /* 占空比 50% */
+
+/* 周期计数值：high + low */
+#define BEEP_PERIOD      (PWM_CLK_HZ / BEEP_FREQ_HZ)
+
+static pwm_config_t g_cfg = {
+    .high_time   = BEEP_PERIOD * BEEP_DUTY / 100,
+    .low_time    = BEEP_PERIOD * (100 - BEEP_DUTY) / 100,
+    .offset_time = 0,
+    .cycles      = 0,          /* 0 表示连续输出 */
+    .repeat      = true,
+};
+
+/* 1. 引脚复用 + 打开 PWM 通道 + 加入输出组 */
+static errcode_t beep_init(void)
+{
+    errcode_t ret;
+
+    uapi_pin_set_mode(BEEP_PIN, BEEP_PIN_MODE);      /* GPIO9 -> PWM0_OUT */
+
+    ret = uapi_pwm_init();
+    if (ret != ERRCODE_SUCC) {
+        printf("[BEEP] pwm init failed: 0x%x\r\n", ret);
+        return ret;
+    }
+
+    ret = uapi_pwm_open(BEEP_CHANNEL, &g_cfg);
+    if (ret != ERRCODE_SUCC) {
+        printf("[BEEP] pwm open failed: 0x%x\r\n", ret);
+        return ret;
+    }
+
+    uint8_t channel = BEEP_CHANNEL;
+    uapi_pwm_set_group(BEEP_GROUP, &channel, 1);
+    printf("[BEEP] freq=%dHz duty=%d%% high=%d low=%d\r\n",
+           BEEP_FREQ_HZ, BEEP_DUTY,
+           BEEP_PERIOD * BEEP_DUTY / 100, BEEP_PERIOD * (100 - BEEP_DUTY) / 100);
+    return ERRCODE_SUCC;
+}
+
+/* 2. 起振 / 停振 */
+static void beep_on(void)
+{
+    uapi_pwm_start_group(BEEP_GROUP);
+}
+
+static void beep_off(void)
+{
+    uapi_pwm_stop_group(BEEP_GROUP);
+}
+
+/* 3. 释放资源 */
+static void beep_deinit(void)
+{
+    uapi_pwm_close(BEEP_CHANNEL);
+    uapi_pwm_deinit();
+}
+
+static void *beep_task(const char *arg)
+{
+    unused(arg);
+    if (beep_init() != ERRCODE_SUCC) {
+        return NULL;
+    }
+
+    for (int i = 0; i < 3; i++) {
+        beep_on();
+        osDelay(500);
+        beep_off();
+        osDelay(500);
+    }
+
+    beep_deinit();
+    printf("[BEEP] beep finished, pwm stopped\r\n");
+    return NULL;
+}
+
+static void beep_entry(void)
+{
+    osThreadAttr_t attr = {0};
+    attr.name = "BeepTask";
+    attr.stack_size = 4096;
+    attr.priority = osPriorityNormal;
+    if (osThreadNew((osThreadFunc_t)beep_task, NULL, &attr) == NULL) {
+        printf("[BEEP] create task failed\r\n");
+    }
+}
+
+SYS_RUN(beep_entry);
+`;
+
+  function stripComments(s) {
+    return s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  }
+
+  function collectDefines(src) {
+    var defs = {}, re = /^[ \t]*#[ \t]*define[ \t]+([A-Za-z_]\w*)[ \t]+(.+)$/gm, m;
+    while ((m = re.exec(src))) {
+      defs[m[1]] = m[2].replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '').trim();
+    }
+    return defs;
+  }
+
+  function evalNum(expr, defs, depth) {
+    depth = depth || 0;
+    if (depth > 12 || expr == null) return NaN;
+    var s = String(expr).trim();
+    if (!s) return NaN;
+    s = s.replace(/\b([A-Za-z_]\w*)\b/g, function (name) {
+      if (Object.prototype.hasOwnProperty.call(defs, name)) {
+        var v = evalNum(defs[name], defs, depth + 1);
+        return isNaN(v) ? name : '(' + v + ')';
+      }
+      return name;
+    });
+    s = s.replace(/\b(0[xX][0-9a-fA-F]+|\d+)[uUlL]+\b/g, '$1');
+    if (/[A-Za-z_]/.test(s)) return NaN;
+    if (!/^[\d\s+\-*/().%]+$/.test(s)) return NaN;
+    try {
+      var v2 = Function('return (' + s + ')')();
+      return typeof v2 === 'number' && isFinite(v2) ? v2 : NaN;
+    } catch (e) { return NaN; }
+  }
+
+  /* 核心：对提交的 C 代码做静态检查，返回 {issues, meta} */
+  function analyze(src) {
+    var issues = [];
+    var raw = String(src || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    var lines = raw.split('\n');
+    var code = stripComments(raw);
+    var defs = collectDefines(raw);
+
+    function lineOf(re) {
+      var arr = code.split('\n');
+      for (var j = 0; j < arr.length; j++) { if (re.test(arr[j])) return j + 1; }
+      return 0;
+    }
+    function add(level, line, msg, detail) {
+      issues.push({ level: level, line: line || 0, msg: msg, detail: detail || '' });
+    }
+
+    if (!raw.trim()) {
+      add('error', 1, 'empty translation unit', '文件为空，请编写蜂鸣器驱动代码。');
+      return { issues: issues, meta: null };
+    }
+
+    /* 1. 括号配平 */
+    var ob = (code.match(/\{/g) || []).length, cb = (code.match(/\}/g) || []).length;
+    if (ob !== cb) {
+      add('error', lines.length, "expected '}' at end of input",
+        '花括号不匹配：{ 共 ' + ob + ' 个，} 共 ' + cb + ' 个。');
+    }
+    var op = (code.match(/\(/g) || []).length, cp = (code.match(/\)/g) || []).length;
+    if (op !== cp) {
+      add('error', lines.length, "expected ')' before end of input",
+        '圆括号不匹配：( 共 ' + op + ' 个，) 共 ' + cp + ' 个。');
+    }
+
+    /* 2. 头文件 */
+    if (!/#include/.test(code)) {
+      add('error', 1, "fatal error: no include directive",
+        '缺少头文件引入，无法使用 pwm_config_t / uapi_pwm_* 等接口。');
+    } else if (!/#include\s*[<"]\s*(driver\/)?pwm\.h\s*[>"]/.test(code)) {
+      add('error', lineOf(/#include/), "'pwm_config_t' undeclared (first use in this function)",
+        '任务书 2.x：PWM 相关接口依赖 include\\driver\\pwm.h，请添加 #include "pwm.h"。');
+    }
+
+    /* 3. 引脚复用 */
+    var muxLine = lineOf(/uapi_pin_set_mode|hi_io_set_func|IoSetFunc/);
+    if (!muxLine) {
+      add('error', 0, "implicit declaration of function 'uapi_pin_set_mode'",
+        'GPIO9 未复用为 PWM 功能。引脚默认是普通 GPIO，必须先把复用关系切换为 PWM_OUT，否则蜂鸣器不会响。');
+    } else {
+      var muxSrc = code.split('\n')[muxLine - 1] || '';
+      if (/GPIO_?8\b|_8_GPIO|pin[ _]?8\b/i.test(muxSrc)) {
+        add('error', muxLine, 'wrong pin for buzzer',
+          '这里配置的是 GPIO8（交通灯板的按键 KEY），蜂鸣器 BEEP 走的是 GPIO9。');
+      }
+    }
+
+    /* 4. pwm_config_t 配置 */
+    var hasCfgType = /pwm_config_t\s+[A-Za-z_]\w*\s*(=|;)/.test(code);
+    if (!hasCfgType) {
+      add('error', lineOf(/uapi_pwm_open/), "unknown type name 'pwm_config_t'",
+        '需要定义一个 pwm_config_t 结构体变量，并在 uapi_pwm_open() 中传入它的地址。');
+    }
+
+    var high = NaN, low = NaN, cycles = NaN, repeat = null, cfgLine = lineOf(/pwm_config_t\s+[A-Za-z_]\w*\s*=/);
+    var mHigh = /\.\s*high_time\s*=\s*([^,}\n]+)/.exec(code);
+    var mLow = /\.\s*low_time\s*=\s*([^,}\n]+)/.exec(code);
+    var mCyc = /\.\s*cycles\s*=\s*([^,}\n]+)/.exec(code);
+    var mRep = /\.\s*repeat\s*=\s*(true|false|0|1)\b/.exec(code);
+
+    if (hasCfgType) {
+      if (!mHigh || !mLow) {
+        /* 尝试位置初始化 {low, high, offset, cycles, repeat} */
+        var pos = /pwm_config_t\s+[A-Za-z_]\w*\s*=\s*\{([^}]*)\}/.exec(code);
+        if (pos) {
+          var parts = pos[1].split(','), vals = [];
+          for (var i = 0; i < parts.length; i++) { vals.push(evalNum(parts[i], defs)); }
+          if (vals.length >= 2) {
+            low = vals[0]; high = vals[1];
+            if (vals.length >= 4) cycles = vals[3];
+            if (vals.length >= 5) repeat = String(vals[4]) === '1';
+            add('warning', cfgLine, 'positional initializer detected',
+              '建议改用指定初始化器（.high_time = … / .low_time = …），可读性更好，也不易因结构体字段顺序变化而出错。');
+          }
+        }
+      } else {
+        high = evalNum(mHigh[1], defs);
+        low = evalNum(mLow[1], defs);
+      }
+      if (mCyc) { cycles = evalNum(mCyc[1], defs); }
+      if (mRep) { repeat = mRep[1] === 'true' || mRep[1] === '1'; }
+
+      if (!mHigh && !mLow && isNaN(high)) {
+        add('error', cfgLine, "'pwm_config_t' has no member named 'high_time'",
+          '配置结构体必须包含 high_time 与 low_time，二者之和决定 PWM 周期（频率）。');
+      }
+    }
+
+    var meta = null;
+    if (!isNaN(high) && !isNaN(low)) {
+      var period = high + low;
+      if (high <= 0 || low <= 0) {
+        add('error', cfgLine, 'invalid duty ratio: PWM does not support 0% or 100%',
+          'high_time = ' + high + '，low_time = ' + low + '。硬件限制：占空比不能为 0% 或 100%，' +
+          '此时引脚电平恒定、无翻转，蜂鸣器不发声。');
+      } else {
+        var f = PWM_CLK / period, duty = high / period * 100;
+        meta = {
+          high: Math.round(high), low: Math.round(low), period: Math.round(period),
+          freq: Math.round(f), duty: Math.round(duty * 10) / 10
+        };
+        if (f < 20 || f > 20000) {
+          add('warning', cfgLine, 'output frequency out of audio range',
+            '换算得到 ' + meta.freq + ' Hz，超出人耳可听范围（20Hz~20kHz），运行时会听不到声音。');
+        } else if (f < 500 || f > 5000) {
+          add('warning', cfgLine, 'unusual buzzer frequency',
+            '换算得到 ' + meta.freq + ' Hz，偏离蜂鸣器谐振点（约 2.7kHz），声音可能发闷或刺耳。');
+        }
+        if (duty < 5 || duty > 95) {
+          add('warning', cfgLine, 'extreme duty ratio',
+            '占空比 ' + Math.round(duty) + '%，蜂鸣器响度会明显偏弱，建议取 40%~60%。');
+        }
+      }
+    } else if (hasCfgType) {
+      add('warning', cfgLine, 'cannot evaluate high_time / low_time',
+        '无法在编译期计算出周期值，运行时将无法确定音调。请使用可求值的常量表达式。');
+    }
+
+    /* 5. 关键接口调用顺序 */
+    var openLine = lineOf(/uapi_pwm_open\s*\(/);
+    if (!openLine) {
+      add('error', 0, "implicit declaration of function 'uapi_pwm_open'",
+        '未调用 uapi_pwm_open()：PWM 通道没有打开，配置不会生效。');
+    }
+    if (!/uapi_pwm_init\s*\(/.test(code)) {
+      add('warning', lineOf(/uapi_pwm_open/), 'uapi_pwm_init() not called',
+        '打开通道前建议先调用 uapi_pwm_init() 初始化 PWM 模块（部分 SDK 版本不调用会返回失败）。');
+    }
+    if (!/uapi_pwm_set_group\s*\(/.test(code)) {
+      add('warning', lineOf(/uapi_pwm_open/), 'uapi_pwm_set_group() not called',
+        '部分 SDK 需要把通道加入输出组后才能启动输出，否则 uapi_pwm_start 无效。');
+    }
+    if (!/uapi_pwm_start(_group)?\s*\(/.test(code)) {
+      add('error', openLine, "PWM channel never started",
+        '通道已打开但从未启动：缺少 uapi_pwm_start_group()（或 uapi_pwm_start()），蜂鸣器不会响。');
+    }
+    if (!/uapi_pwm_stop(_group)?\s*\(/.test(code) || !/uapi_pwm_close\s*\(/.test(code)) {
+      add('warning', 0, 'PWM resource not released',
+        '建议在退出时调用 uapi_pwm_stop_group() / uapi_pwm_close() 释放资源，避免下一次初始化失败。');
+    }
+    if (!/SYS_RUN|app_run|osThreadNew|osal_kthread_create|int\s+main\s*\(/.test(code)) {
+      add('warning', 0, 'no application entry found',
+        '未找到应用入口（SYS_RUN / app_run / 创建线程 / main），烧录后程序不会自动运行。');
+    }
+
+    issues.sort(function (a, b) {
+      var rank = { error: 0, warning: 1, info: 2 };
+      if (rank[a.level] !== rank[b.level]) return rank[a.level] - rank[b.level];
+      return (a.line || 999) - (b.line || 999);
+    });
+    return { issues: issues, meta: meta };
+  }
+
+  /* =====================================================================
+   *  二、界面状态
+   * ===================================================================== */
+  var STORE_KEY = 'buzzer-lab-v1';
+  var state = {
+    step: 1,
+    wires: [],                 /* ['p-g9|p-a9', 'p-a9|p-beep'] */
+    params: { freq: 2700, duty: 50, confirmed: false },
+    files: [],
+    code: '',
+    submitted: false,
+    check: null,               /* {issues, meta} */
+    compiled: false,
+    flashed: false,
+    ran: false,
+    startAt: Date.now()
+  };
+
+  var STEPS = [
+    { n: 1, t: '任务导入与硬件连接', s: 'BEEP → A9 → GPIO9' },
+    { n: 2, t: 'PWM 原理与参数计算', s: '频率 / 占空比 / 计数' },
+    { n: 3, t: '搭建工程与文件结构', s: 'beep.c / BUILD.gn' },
+    { n: 4, t: '编写代码并提交', s: 'uapi_pwm_open 配置' },
+    { n: 5, t: '编译工程', s: 'build.py wifiiot' },
+    { n: 6, t: '烧录固件', s: 'HiBurn 921600' },
+    { n: 7, t: '上电运行与验证', s: '虚拟蜂鸣器鸣响' },
+    { n: 8, t: '实训记录与自检', s: '生成实训记录' }
+  ];
+
+  function $(id) { return document.getElementById(id); }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  function toast(msg, kind) {
+    var wrap = $('toasts');
+    var el = document.createElement('div');
+    el.className = 'toast' + (kind ? ' ' + kind : '');
+    el.textContent = msg;
+    wrap.appendChild(el);
+    while (wrap.children.length > 3) { wrap.removeChild(wrap.firstChild); }
+    setTimeout(function () {
+      el.style.transition = 'opacity .3s, transform .3s';
+      el.style.opacity = '0'; el.style.transform = 'translateY(-6px)';
+      setTimeout(function () { el.remove(); }, 320);
+    }, 2100);
+  }
+
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { }
+  }
+  function load() {
+    try {
+      var s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (s && s.step) {
+        state = Object.assign(state, s);
+        state.startAt = state.startAt || Date.now();
+      }
+    } catch (e) { }
+  }
+
+  /* 各步骤完成状态 */
+  function done(n) {
+    switch (n) {
+      case 1: return state.wires.indexOf('p-a9|p-g9') >= 0 && state.wires.indexOf('p-a9|p-beep') >= 0;
+      case 2: return !!state.params.confirmed;
+      case 3: return state.files.length >= 3;
+      case 4: return !!state.submitted;
+      case 5: return !!state.compiled;
+      case 6: return !!state.flashed;
+      case 7: return !!state.ran;
+      case 8: return !!state.ran;
+      default: return false;
+    }
+  }
+  function unlocked(n) {
+    if (n === 1) return true;
+    return done(n - 1);
+  }
+
+  /* ---------- 侧边导航 ---------- */
+  function renderNav() {
+    var box = $('nav');
+    box.innerHTML = '';
+    STEPS.forEach(function (s) {
+      var b = document.createElement('button');
+      b.className = 'nav-item' + (s.n === state.step ? ' active' : '') +
+        (done(s.n) ? ' done' : '') + (unlocked(s.n) ? '' : ' locked');
+      b.innerHTML = '<span class="num">' + s.n + '</span>' +
+        '<span class="t"><b>' + s.t + '</b><small>' + s.s + '</small></span>' +
+        '<svg class="chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+      b.addEventListener('click', function () { goStep(s.n); });
+      box.appendChild(b);
+    });
+  }
+
+  function goStep(n) {
+    if (!unlocked(n)) {
+      toast('请先完成第 ' + (n - 1) + ' 步：' + STEPS[n - 2].t, 'bad');
+      return;
+    }
+    state.step = n; save();
+    document.querySelectorAll('.step').forEach(function (el) {
+      el.classList.toggle('active', +el.dataset.step === n);
+    });
+    renderNav();
+    $('main').scrollTop = 0;
+    if (n === 7) refreshRunStage();
+    if (n === 8) renderScore();
+    if (n === 4) { if (!state.code) { state.code = ''; } }
+    if (n === 5) { }
+  }
+
+  /* ---------- 顶部状态灯 ---------- */
+  function refreshPills() {
+    var w = $('pillWire');
+    if (done(1)) { w.className = 'pill on'; w.lastChild.textContent = 'BEEP↔A9↔GPIO9 已连接'; }
+    else { w.className = 'pill'; w.lastChild.textContent = '引脚未连接'; }
+
+    var b = $('pillBuild');
+    if (state.compiled) { b.className = 'pill on'; b.lastChild.textContent = '编译通过'; }
+    else if (state.submitted && state.check) { b.className = 'pill warn'; b.lastChild.textContent = '代码已提交'; }
+    else { b.className = 'pill'; b.lastChild.textContent = '未编译'; }
+
+    var r = $('pillRun');
+    if (state.ran) { r.className = 'pill on'; r.lastChild.textContent = '蜂鸣器已鸣响'; }
+    else if (state.flashed) { r.className = 'pill warn'; r.lastChild.textContent = '已烧录待运行'; }
+    else { r.className = 'pill'; r.lastChild.textContent = '未运行'; }
+  }
+
+  /* =====================================================================
+   *  三、步骤 1：接线
+   * ===================================================================== */
+  var portPos = {};
+  var selPort = null;
+  var ALLOWED = { 'p-g9|p-a9': true, 'p-a9|p-g9': true, 'p-a9|p-beep': true, 'p-beep|p-a9': true };
+
+  function initWiring() {
+    document.querySelectorAll('.port').forEach(function (g) {
+      var hit = g.querySelector('.hit');
+      portPos[g.dataset.id] = { x: +hit.getAttribute('cx'), y: +hit.getAttribute('cy') };
+      g.addEventListener('click', function () { onPortClick(g.dataset.id); });
+      g.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+        var before = state.wires.length;
+        state.wires = state.wires.filter(function (w) { return w.indexOf(g.dataset.id) < 0; });
+        if (state.wires.length !== before) {
+          save(); redrawWires(); updateWireChips(); refreshPills(); renderNav();
+          toast('已断开该端口的连线');
+        }
+      });
+    });
+    redrawWires();
+    updateWireChips();
+  }
+
+  function key(a, b) { return [a, b].sort().join('|'); }
+
+  function onPortClick(id) {
+    if (!selPort) { selPort = id; markSel(); return; }
+    if (selPort === id) { selPort = null; markSel(); return; }
+    var k = key(selPort, id);
+    if (state.wires.indexOf(k) >= 0) {
+      selPort = null; markSel();
+      toast('这两个点已经连好了');
+      return;
+    }
+    if (ALLOWED[k]) {
+      state.wires.push(k);
+      selPort = null;
+      markSel();
+      redrawWires(true);
+      updateWireChips();
+      refreshPills();
+      save();
+      if (done(1)) {
+        toast('接线正确：GPIO9 → A9 → BEEP', 'good');
+        $('btnStep1Next').disabled = false;
+      }
+    } else {
+      var a = selPort; selPort = null; markSel();
+      flashBadWire(a, id);
+      toast('接线错误：请按任务书给出的对应关系连接', 'bad');
+    }
+  }
+
+  function markSel() {
+    document.querySelectorAll('.port').forEach(function (g) {
+      g.classList.toggle('sel', g.dataset.id === selPort);
+    });
+  }
+
+  function pth(a, b) {
+    var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 - 30;
+    return 'M ' + a.x + ' ' + a.y + ' Q ' + mx + ' ' + my + ' ' + b.x + ' ' + b.y;
+  }
+
+  function redrawWires(animate) {
+    var layer = $('wireLayer');
+    layer.innerHTML = '';
+    var colors = ['#2f6bf0', '#0d9488'];
+    state.wires.forEach(function (k, idx) {
+      var p = k.split('|');
+      var d = pth(portPos[p[0]], portPos[p[1]]);
+      var wrap = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      wrap.setAttribute('d', d); wrap.setAttribute('class', 'wire-wrap');
+      var w = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      w.setAttribute('d', d); w.setAttribute('class', 'wire' + (animate ? ' wire-anim' : ''));
+      w.setAttribute('stroke', colors[idx % 2]);
+      layer.appendChild(wrap); layer.appendChild(w);
+      if (animate) setTimeout(function () { w.classList.remove('wire-anim'); }, 900);
+    });
+    document.querySelectorAll('.port').forEach(function (g) {
+      g.classList.toggle('wired', state.wires.some(function (k) { return k.indexOf(g.dataset.id) >= 0; }));
+    });
+  }
+
+  function flashBadWire(a, b) {
+    var layer = $('wireLayer');
+    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pth(portPos[a], portPos[b]));
+    path.setAttribute('class', 'wire wire-bad');
+    layer.appendChild(path);
+    setTimeout(function () { path.remove(); }, 700);
+  }
+
+  function updateWireChips() {
+    var c1 = $('pG9A9'), c2 = $('pA9BEEP');
+    var ok1 = state.wires.indexOf('p-a9|p-g9') >= 0, ok2 = state.wires.indexOf('p-a9|p-beep') >= 0;
+    c1.className = 'chip' + (ok1 ? ' on' : ''); c1.textContent = (ok1 ? '✓ ' : '') + '① 核心板 GPIO9 → 底板 A9';
+    c2.className = 'chip' + (ok2 ? ' on' : ''); c2.textContent = (ok2 ? '✓ ' : '') + '② 底板 A9 → 交通灯板 BEEP';
+    $('btnStep1Next').disabled = !done(1);
+  }
+
+  /* =====================================================================
+   *  四、步骤 2：参数计算
+   * ===================================================================== */
+  function calcParams() {
+    var f = +$('freqRange').value, d = +$('dutyRange').value;
+    var period = Math.round(PWM_CLK / f);
+    var high = Math.round(period * d / 100);
+    var low = period - high;
+    var realF = PWM_CLK / (high + low), realD = high / (high + low) * 100;
+    $('freqVal').textContent = f + ' Hz';
+    $('dutyVal').textContent = d + ' %';
+    $('kvPeriod').textContent = (high + low).toLocaleString();
+    $('kvHigh').textContent = high.toLocaleString();
+    $('kvLow').textContent = low.toLocaleString();
+    $('kvFreqReal').textContent = realF.toFixed(1) + ' Hz';
+    $('kvDutyReal').textContent = realD.toFixed(1) + ' %';
+    $('freqRange').style.setProperty('--p', ((f - 200) / (6000 - 200) * 100) + '%');
+    $('dutyRange').style.setProperty('--p', d + '%');
+    state.params.freq = f; state.params.duty = d;
+    drawCalcWave(high, low);
+    var hint = $('paramHint');
+    if (f >= 2000 && f <= 3500 && d >= 40 && d <= 60) {
+      hint.innerHTML = '<span class="ok-txt">✓</span> 参数合理：接近蜂鸣器谐振频率，声音清晰、响度足够。';
+    } else {
+      hint.innerHTML = '<span class="err-txt">•</span> 建议使用 2700 Hz / 50%：其它取值会导致声音发闷、刺耳或音量偏小。';
+    }
+  }
+
+  function onParamChange() {
+    if (state.params.confirmed) {
+      state.params.confirmed = false;
+      $('btnParamConfirm').style.display = '';
+      $('btnStep2Next').style.display = 'none';
+      save(); renderNav();
+    }
+    calcParams();
+  }
+
+  function drawCalcWave(high, low) {
+    var cv = $('calcWave'), ctx = cv.getContext('2d');
+    var W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    /* 网格 */
+    ctx.strokeStyle = '#16233a'; ctx.lineWidth = 1;
+    for (var x = 0; x <= W; x += W / 12) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (var y = 0; y <= H; y += H / 4) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    var cycles = 4, per = W / cycles, top = 22, bot = H - 26;
+    var hpx = per * (high / (high + low));
+    ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 2.2; ctx.lineJoin = 'miter';
+    ctx.beginPath();
+    for (var c = 0; c < cycles; c++) {
+      var x0 = c * per, x1 = x0 + hpx, x2 = x0 + per;
+      if (c === 0) ctx.moveTo(x0, bot); else ctx.lineTo(x0, bot);
+      ctx.lineTo(x0, top); ctx.lineTo(x1, top); ctx.lineTo(x1, bot); ctx.lineTo(x2, bot);
+    }
+    ctx.stroke();
+    /* 高电平标注 */
+    ctx.fillStyle = 'rgba(74,222,128,.12)';
+    ctx.fillRect(0, top, per * cycles, 1);
+    ctx.setLineDash([3, 4]); ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, top); ctx.lineTo(per * cycles, top); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, bot); ctx.lineTo(per * cycles, bot); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#7f92b0'; ctx.font = '11px monospace';
+    ctx.fillText('3.3V', 4, top - 6);
+    ctx.fillText('GND', 4, bot + 15);
+    ctx.fillStyle = '#93c5fd';
+    ctx.fillText('T = high + low = ' + (high + low) + ' clk', W - 190, 16);
+  }
+
+  /* =====================================================================
+   *  五、步骤 3：工程文件
+   * ===================================================================== */
+  var FILE_TPL = {
+    'beep.c': {
+      title: 'beep.c',
+      code: '/* beep.c —— 蜂鸣器驱动源文件（待编写） */\n#include "pwm.h"\n\n/* TODO: 完成引脚复用、pwm_config_t 配置、uapi_pwm_open 与启动 */\n'
+    },
+    'BUILD.gn': {
+      title: 'beep/BUILD.gn',
+      code: 'import("//build/lite/config/component/lite_component.gni")\n\nstatic_library("beep") {\n  sources = [ "beep.c" ]\n  include_dirs = [\n    "//base/iot_hardware/peripheral/interfaces/kits",\n    "//device/hisilicon/hi3861/hi3861/include/uapi",\n    "//kernel/liteos_m/components/cmsis/2.0",\n    "//utils/native/lite/include",\n  ]\n  cflags = [ "-Wno-unused-parameter" ]\n}\n'
+    },
+    'app/BUILD.gn': {
+      title: 'app/BUILD.gn（组件注册）',
+      code: 'import("//build/lite/config/component/lite_component.gni")\n\nlite_component("app") {\n  features = [\n    "//applications/sample/wifi-iot/app/beep",   /* 注册蜂鸣器组件 */\n  ]\n}\n'
+    }
+  };
+
+  function createFile(name) {
+    if (state.files.indexOf(name) >= 0) return;
+    state.files.push(name);
+    var row = document.querySelector('.row[data-file="' + name + '"]');
+    if (row) {
+      row.classList.add('done');
+      row.querySelector('.state').textContent = '已创建';
+      var btn = row.querySelector('button'); if (btn) btn.remove();
+    }
+    save();
+    $('btnStep3Next').disabled = state.files.length < 3;
+    renderNav(); refreshPills();
+    showFile(name);
+  }
+
+  function showFile(name) {
+    var t = FILE_TPL[name];
+    if (!t) return;
+    $('filePreviewTitle').textContent = t.title;
+    $('filePreviewCode').textContent = t.code;
+  }
+
+  /* =====================================================================
+   *  六、步骤 4：编辑器 + 提交
+   * ===================================================================== */
+  var errLines = {};
+
+  function syncGutter() {
+    var ta = $('code');
+    var n = ta.value.split('\n').length;
+    var g = $('gutter');
+    var html = '';
+    for (var i = 1; i <= Math.max(n, 12); i++) {
+      html += '<div class="' + (errLines[i] ? 'err' : '') + '">' + i + '</div>';
+    }
+    g.innerHTML = html;
+    g.scrollTop = ta.scrollTop;
+    $('charCount').textContent = n + ' 行 · ' + ta.value.length + ' 字符';
+  }
+
+  function renderIssues(res) {
+    var panel = $('checkPanel');
+    panel.classList.add('show');
+    var errs = res.issues.filter(function (i) { return i.level === 'error'; });
+    var warns = res.issues.filter(function (i) { return i.level === 'warning'; });
+    var st = $('checkStatus');
+    if (errs.length) { st.className = 'st bad'; st.textContent = errs.length + ' 错误'; }
+    else if (warns.length) { st.className = 'st ok'; st.textContent = '0 错误 · ' + warns.length + ' 警告'; }
+    else { st.className = 'st ok'; st.textContent = '0 错误'; }
+
+    $('checkMeta').textContent = res.meta
+      ? '解析结果：high=' + res.meta.high + ' / low=' + res.meta.low + ' → ' + res.meta.freq + ' Hz, ' + res.meta.duty + '%'
+      : '未能解析出 PWM 参数';
+
+    var box = $('issues');
+    box.innerHTML = '';
+    if (!res.issues.length) {
+      box.innerHTML = '<div class="issue info"><span class="lvl">PASS</span><div class="body"><b>静态检查通过</b><small>语法、接口调用、参数合法性均符合要求，可以进入编译环节。</small></div></div>';
+    }
+    errLines = {};
+    res.issues.forEach(function (it) {
+      if (it.line) errLines[it.line] = true;
+      var row = document.createElement('div');
+      row.className = 'issue ' + it.level;
+      row.innerHTML = '<span class="lvl">' + (it.level === 'error' ? 'ERROR' : 'WARN') + '</span>' +
+        '<div class="body"><b>' + escapeHtml(it.msg) + '</b>' +
+        (it.detail ? '<small>' + escapeHtml(it.detail) + '</small>' : '') + '</div>' +
+        (it.line ? '<span class="loc">beep.c:' + it.line + '</span>' : '<span class="loc">beep.c</span>');
+      box.appendChild(row);
+    });
+    syncGutter();
+  }
+
+  function showBanner(errs) {
+    var box = $('issues');
+    var b = document.createElement('div');
+    b.className = 'issue error';
+    b.innerHTML = '<span class="lvl">TIP</span><div class="body"><b>仍有 ' + errs + ' 个错误，直接编译会失败</b>' +
+      '<small>可以先修正后再次提交；也可以进入下一步编译，观察编译器给出的报错信息。</small></div>';
+    box.insertBefore(b, box.firstChild);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function doSubmit() {
+    var code = $('code').value;
+    if (!code.trim()) { toast('请先编写代码再提交', 'bad'); return; }
+    state.code = code;
+    var res = analyze(code);
+    state.check = res;
+    var errs = res.issues.filter(function (i) { return i.level === 'error'; }).length;
+    state.submitted = true;
+    renderIssues(res);
+    save(); renderNav(); refreshPills();
+    if (errs === 0) {
+      toast('提交成功 · 静态检查通过，' + (res.issues.length ? res.issues.length + ' 条警告' : '无警告'), 'good');
+      if (res.meta) toast('识别参数：' + res.meta.freq + ' Hz / 占空比 ' + res.meta.duty + '%', 'good');
+    } else {
+      toast('已提交，但检查发现 ' + errs + ' 个错误 —— 编译将失败，请先修正', 'bad');
+      showBanner(errs);
+    }
+    $('btnStep4Next').disabled = !done(4);
+  }
+
+  /* =====================================================================
+   *  七、步骤 5：编译
+   * ===================================================================== */
+  var buildLog = [
+    ['c-cmd', '$ python build.py wifiiot'],
+    ['c-dim', '[OHOS INFO] hb build -f --target wifiiot'],
+    ['c-info', '[OHOS INFO] generating ninja files... done'],
+    ['c-info', '[OHOS INFO] ninja -C out/wifiiot Hi3861_wifiiot_app'],
+    ['c-info', '[1/24] CC   applications/sample/wifi-iot/app/beep/beep.c'],
+    ['c-info', '[2/24] CC   base/iot_hardware/peripheral/src/iot_gpio.c'],
+    ['c-info', '[3/24] CC   drivers/hdf/framework/src/hdf_driver.c'],
+    ['c-info', '[4/24] CC   device/hisilicon/hi3861/sdk_liteos/platform/os/los_task.c'],
+    ['c-info', '[5/24] CC   foundation/communication/softbus_lite/softbus.c'],
+    ['c-info', '[6/24] CC   adapter/uhdf/manager/devmgr_service.c'],
+    ['c-info', '[7/24] CC   drivers/pwm/pwm_hal.c'],
+    ['c-info', '[8/24] CC   drivers/pwm/pwm_core.c'],
+    ['c-dim', '...'],
+    ['c-info', '[19/24] AR   libbeep.a'],
+    ['c-info', '[20/24] AR   libwifiiot_app.a'],
+    ['c-info', '[21/24] LINK out/wifiiot/Hi3861_wifiiot_app.elf'],
+    ['c-info', '[22/24] OBJCOPY out/wifiiot/Hi3861_wifiiot_app.bin'],
+    ['c-info', '[23/24] PACK  out/wifiiot/Hi3861_wifiiot_app_allinone.bin'],
+    ['c-info', '[24/24] SIZE  Hi3861_wifiiot_app.elf'],
+    ['c-info', ''],
+    ['c-info', '   text    data     bss     dec     hex  filename'],
+    ['c-info', ' 612340    3208   48160  663708   a20dc  Hi3861_wifiiot_app.elf'],
+    ['c-info', ''],
+    ['c-ok', '[OHOS INFO] BUILD SUCCESS  (elapsed 00:01:12)'],
+    ['c-ok', '[OHOS INFO] output: out/wifiiot/Hi3861_wifiiot_app_allinone.bin  (652 KB)']
+  ];
+
+  function term(el) {
+    return {
+      clear: function () { el.innerHTML = ''; },
+      line: function (text, cls) {
+        var s = document.createElement('span');
+        if (cls) s.className = cls;
+        s.textContent = text + '\n';
+        el.appendChild(s);
+        el.scrollTop = el.scrollHeight;
+      },
+      html: function (h) { }
+    };
+  }
+
+  async function doCompile() {
+    if (!state.submitted) { toast('请先在步骤 4 提交代码', 'bad'); goStep(4); return; }
+    var res = analyze($('code').value);
+    state.check = res;
+    var errs = res.issues.filter(function (i) { return i.level === 'error'; });
+
+    var btn = $('btnCompile');
+    btn.disabled = true; btn.textContent = '编译中…';
+    $('btnStep5Next').disabled = true;
+    state.compiled = false; save();
+    var t = term($('termBuild')); t.clear();
+    $('progBuild').style.width = '0%'; $('progBuildPct').textContent = '0%';
+
+    if (errs.length) {
+      renderIssues(res);
+      t.line('$ python build.py wifiiot', 'c-cmd');
+      await sleep(300);
+      t.line('[OHOS INFO] generating ninja files... done', 'c-info');
+      await sleep(260);
+      t.line('[1/24] CC   applications/sample/wifi-iot/app/beep/beep.c', 'c-info');
+      await sleep(400);
+      errs.slice(0, 6).forEach(function (e) {
+        t.line('applications/sample/wifi-iot/app/beep/beep.c' + (e.line ? ':' + e.line : '') + ': error: ' + e.msg, 'c-err');
+      });
+      await sleep(200);
+      t.line('ninja: build stopped: subcommand failed.', 'c-err');
+      t.line('[OHOS INFO] BUILD FAILED  (1 error generated)', 'c-err');
+      $('progBuildTxt').textContent = '编译失败：' + errs.length + ' 个错误';
+      $('progBuildPct').textContent = '0%';
+      toast('编译失败，请根据错误信息修改代码', 'bad');
+      btn.disabled = false; btn.textContent = '重新编译';
+      refreshPills();
+      return;
+    }
+
+    $('progBuildTxt').textContent = '正在编译 beep 组件…';
+    for (var i = 0; i < buildLog.length; i++) {
+      t.line(buildLog[i][1], buildLog[i][0]);
+      var pct = Math.min(100, Math.round((i + 1) / buildLog.length * 100));
+      $('progBuild').style.width = pct + '%';
+      $('progBuildPct').textContent = pct + '%';
+      if (i === 4) $('progBuildTxt').textContent = '编译 beep.c …';
+      if (i === 16) $('progBuildTxt').textContent = '链接生成可执行文件 …';
+      await sleep(i < 4 ? 260 : 90);
+    }
+    res.issues.filter(function (x) { return x.level === 'warning'; }).forEach(function (w) {
+      t.line('beep.c:' + (w.line || 0) + ': warning: ' + w.msg, 'c-warn');
+    });
+    $('progBuild').style.width = '100%';
+    $('progBuildPct').textContent = '100%';
+    $('progBuildTxt').textContent = '编译成功，产物 652 KB';
+    state.compiled = true; save();
+    refreshPills(); renderNav();
+    $('btnStep5Next').disabled = false;
+    toast('编译通过，可以烧录了', 'good');
+    btn.disabled = false; btn.textContent = '重新编译';
+  }
+
+  /* =====================================================================
+   *  八、步骤 6：烧录
+   * ===================================================================== */
+  async function doFlash() {
+    if (!state.compiled) { toast('请先完成编译', 'bad'); goStep(5); return; }
+    var btn = $('btnFlash');
+    btn.disabled = true; btn.textContent = '烧录中…';
+    var t = term($('termFlash')); t.clear();
+    $('progFlash').style.width = '0%'; $('progFlashPct').textContent = '0%';
+
+    t.line('$ hiburn -p COM3 -b 921600 -f out/wifiiot/Hi3861_wifiiot_app_allinone.bin', 'c-cmd');
+    await sleep(320);
+    t.line('[HiBurn] open serial port COM3 @921600 ... OK', 'c-info');
+    await sleep(280);
+    t.line('[HiBurn] waiting for bootrom, please reset the board ... detected', 'c-info');
+    await sleep(320);
+    t.line('[HiBurn] chip: Hi3861V100   flash: 2MB   crystal: 24MHz', 'c-info');
+    await sleep(240);
+    t.line('[HiBurn] erase 0x00000000 - 0x0009F400 ... OK', 'c-info');
+
+    for (var p = 0; p <= 100; p += 5) {
+      $('progFlash').style.width = p + '%';
+      $('progFlashPct').textContent = p + '%';
+      $('progFlashTxt').textContent = '正在写入 Flash … ' + p + '%';
+      await sleep(45);
+    }
+    t.line('[HiBurn] writing 652 KB @ 0x00000000 ... done', 'c-info');
+    await sleep(200);
+    t.line('[HiBurn] verify ... OK', 'c-info');
+    await sleep(160);
+    t.line('[HiBurn] burn success, rebooting device ...', 'c-ok');
+    $('progFlashTxt').textContent = '烧录成功，设备已重启';
+    state.flashed = true; save();
+    refreshPills(); renderNav();
+    $('btnStep6Next').disabled = false;
+    toast('烧录成功，接下来上电运行', 'good');
+    btn.disabled = false; btn.textContent = '重新烧录';
+  }
+
+  /* =====================================================================
+   *  九、步骤 7：运行 + 虚拟蜂鸣器
+   * ===================================================================== */
+  var actx = null, voice = null, scopeRAF = 0, loopOn = false, busy = false;
+
+  function ensureAudio() {
+    if (!actx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      actx = new AC();
+    }
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+
+  function playTone(freq, duty) {
+    var ctx = ensureAudio();
+    stopTone();
+    var o = ctx.createOscillator();
+    o.type = 'square';
+    o.frequency.value = Math.max(40, Math.min(freq, 12000));
+    var g = ctx.createGain();
+    var amp = 0.045 + 0.155 * Math.min(1, duty / 50);
+    g.gain.value = amp;
+    var lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = Math.min(freq * 8, 16000);
+    o.connect(lp); lp.connect(g); g.connect(ctx.destination);
+    o.start();
+    voice = { o: o, g: g, amp: amp };
+    return amp;
+  }
+
+  function stopTone() {
+    if (voice) {
+      try {
+        voice.g.gain.setTargetAtTime(0, actx.currentTime, 0.01);
+        voice.o.stop(actx.currentTime + 0.05);
+      } catch (e) { }
+      voice = null;
+    }
+  }
+
+  function setBuzzing(on) {
+    $('buzzerEl').classList.toggle('ringing', on);
+    $('wavesEl').classList.toggle('on', on);
+    if (!on) { $('volBar').style.width = '0%'; $('mVol').innerHTML = '0<small>dB</small>'; }
+  }
+
+  function serialLine(text, cls) {
+    var box = $('serial');
+    var time = new Date().toTimeString().slice(0, 8) + '.' + String(Date.now() % 1000).padStart(3, '0');
+    var span = document.createElement('span');
+    if (cls) span.className = cls;
+    span.textContent = '[' + time + '] ' + text + '\n';
+    box.appendChild(span);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function refreshRunStage() {
+    var ready = done(6);
+    $('lockRun').style.display = ready ? 'none' : 'flex';
+    $('runStage').style.display = ready ? 'block' : 'none';
+    if (!ready) return;
+    var m = state.check && state.check.meta;
+    if (m) {
+      $('mFreq').innerHTML = m.freq + '<small>Hz</small>';
+      $('mDuty').innerHTML = m.duty + '<small>%</small>';
+    }
+    $('btnStep7Next').disabled = !state.ran;
+    drawScope(0, false);
+  }
+
+  function drawScope(phase, active) {
+    var cv = $('scope'); if (!cv) return;
+    var ctx = cv.getContext('2d');
+    var W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = '#132038'; ctx.lineWidth = 1;
+    for (var x = 0; x <= W; x += W / 16) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (var y = 0; y <= H; y += H / 4) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+    var m = (state.check && state.check.meta) || { high: 5925, low: 5926, freq: 2700, duty: 50 };
+    var visible = 6, per = W / visible;
+    var duty = m.duty / 100;
+    var top = H * 0.24, bot = H * 0.76;
+
+    ctx.strokeStyle = active ? '#4ade80' : '#2f4a6b';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    var off = (phase % per);
+    for (var i = -1; i <= visible; i++) {
+      var x0 = i * per - off, x1 = x0 + per * duty, x2 = x0 + per;
+      if (i === -1) ctx.moveTo(x0, bot);
+      ctx.lineTo(x0, bot); ctx.lineTo(x0, top); ctx.lineTo(x1, top); ctx.lineTo(x1, bot); ctx.lineTo(x2, bot);
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = '#7f92b0'; ctx.font = '11px monospace';
+    ctx.fillText('PWM0 / GPIO9  T≈' + m.period + 'clk  f≈' + m.freq + 'Hz  duty≈' + m.duty + '%', 12, 18);
+    if (active) {
+      ctx.fillStyle = 'rgba(74,222,128,.15)';
+      ctx.fillRect(0, top - 1, W, 2);
+    }
+  }
+
+  function animateScope() {
+    var phase = 0;
+    cancelAnimationFrame(scopeRAF);
+    var step = function () {
+      phase += 4;
+      drawScope(phase, voice !== null);
+      if (voice !== null || loopOn) scopeRAF = requestAnimationFrame(step);
+      else { drawScope(phase, false); }
+    };
+    scopeRAF = requestAnimationFrame(step);
+  }
+
+  async function runOnce() {
+    if (!state.flashed) { toast('固件还没烧录，无法运行', 'bad'); return; }
+    if (busy) return;
+    busy = true;
+    var btn = $('btnBeep'); btn.disabled = true;
+    var m = (state.check && state.check.meta) || { high: 5925, low: 5926, freq: 2700, duty: 50 };
+
+    var s = $('serial'); s.innerHTML = '';
+    serialLine('ready to OS start', 'dim');
+    serialLine('sdk ver:Hi3861V100R001C00SPC025 2020-07-15', 'dim');
+    serialLine('FileSystem mount ok.', 'dim');
+    serialLine('wifi init success!', 'dim');
+    await sleep(220);
+    serialLine('[BEEP] pin 9 mux -> PWM0_OUT', 'hl');
+    serialLine('[BEEP] pwm init ok, channel=0 group=0', 'hl');
+    serialLine('[BEEP] freq=' + m.freq + 'Hz duty=' + m.duty + '% high=' + m.high + ' low=' + m.low, 'hl');
+    await sleep(200);
+
+    for (var i = 1; i <= 3; i++) {
+      serialLine('[BEEP] beep on  (' + i + '/3)', '');
+      var amp = playTone(m.freq, m.duty);
+      setBuzzing(true);
+      $('mVol').innerHTML = '0<small>dB</small>';
+      $('volBar').style.width = '100%';
+      animateScope();
+      await sleep(480);
+      stopTone();
+      setBuzzing(false);
+      serialLine('[BEEP] beep off (' + i + '/3)', 'dim');
+      await sleep(420);
+    }
+
+    serialLine('[BEEP] pwm stop_group, close channel', 'dim');
+    serialLine('[BEEP] beep finished, pwm stopped', 'ok');
+    state.ran = true; save();
+    $('btnStep7Next').disabled = false;
+    refreshPills(); renderNav();
+    busy = false; btn.disabled = false;
+    toast('验证完成：蜂鸣器鸣响 3 次，现象与实物板一致', 'good');
+  }
+
+  function toggleLoop() {
+    if (!state.flashed) { toast('固件还没烧录，无法运行', 'bad'); return; }
+    var m = (state.check && state.check.meta) || { freq: 2700, duty: 50 };
+    loopOn = !loopOn;
+    if (loopOn) {
+      playTone(m.freq, m.duty);
+      setBuzzing(true);
+      $('volBar').style.width = '100%';
+      $('mVol').innerHTML = '0<small>dB</small>';
+      animateScope();
+      serialLine('[BEEP] continuous output, press key to stop', 'hl');
+      $('btnBeepLoop').textContent = '停止鸣响';
+    } else {
+      stopTone();
+      setBuzzing(false);
+      serialLine('[BEEP] pwm stop_group', 'dim');
+      $('btnBeepLoop').textContent = '持续鸣响 / 停止';
+    }
+    state.ran = state.ran || loopOn;
+    $('btnStep7Next').disabled = !state.ran;
+    if (state.ran) { save(); refreshPills(); renderNav(); }
+  }
+
+  /* =====================================================================
+   *  十、步骤 8：成绩与记录
+   * ===================================================================== */
+  var SCORE_ITEMS = [
+    { n: '硬件接线正确（GPIO9 → A9 → BEEP）', w: 10, ok: function () { return done(1); } },
+    { n: 'PWM 参数计算并确认', w: 10, ok: function () { return done(2); } },
+    { n: '工程文件创建（3 个）', w: 10, ok: function () { return done(3); } },
+    { n: '代码提交并通过静态检查', w: 20, ok: function () {
+        return done(4) && state.check && state.check.issues.filter(function (i) { return i.level === 'error'; }).length === 0;
+      } },
+    { n: '编译通过（生成 .bin）', w: 20, ok: function () { return done(5); } },
+    { n: '烧录成功', w: 15, ok: function () { return done(6); } },
+    { n: '上电运行、蜂鸣器鸣响', w: 15, ok: function () { return done(7); } }
+  ];
+
+  function renderScore() {
+    var box = $('scoreGrid');
+    box.innerHTML = '';
+    var total = 0;
+    SCORE_ITEMS.forEach(function (it) {
+      var ok = it.ok();
+      if (ok) total += it.w;
+      var d = document.createElement('div');
+      d.className = 'item' + (ok ? ' ok' : '');
+      d.innerHTML = '<span class="nm">' + it.n + '</span><span class="sc' + (ok ? '' : ' zero') + '">' +
+        (ok ? it.w : 0) + ' / ' + it.w + '</span>';
+      box.appendChild(d);
+    });
+    $('totalScore').innerHTML = total + '<small> / 100</small>';
+    $('totalTxt').textContent = total >= 100
+      ? '全部环节通过：从硬件接线到 PWM 驱动输出，完整跑通了蜂鸣器案例的实训流程。'
+      : '当前得分 ' + total + ' 分，未完成项请回到对应步骤继续操作。';
+
+    var m = state.check && state.check.meta;
+    $('recHigh').textContent = m ? m.high : '—';
+    $('recLow').textContent = m ? m.low : '—';
+    $('recFreq').textContent = m ? (m.freq + ' Hz / ' + m.duty + ' %') : '—';
+    $('recPhen').textContent = state.ran ? '蜂鸣器发出约 ' + (m ? m.freq : 2700) + 'Hz 的连续鸣响，共 3 次，每次约 0.5 秒' : '尚未运行';
+  }
+
+  /* =====================================================================
+   *  十一、初始化
+   * ===================================================================== */
+  function restore() {
+    if (state.code) $('code').value = state.code;
+    $('freqRange').value = state.params.freq || 2700;
+    $('dutyRange').value = state.params.duty || 50;
+    state.files.slice().forEach(function (f) {
+      var row = document.querySelector('.row[data-file="' + f + '"]');
+      if (row) {
+        row.classList.add('done');
+        row.querySelector('.state').textContent = '已创建';
+        var btn = row.querySelector('button'); if (btn) btn.remove();
+      }
+    });
+    if (state.submitted && state.check) { renderIssues(state.check); }
+    if (state.params.confirmed) {
+      $('btnParamConfirm').style.display = 'none';
+      $('btnStep2Next').style.display = '';
+    }
+    $('btnStep3Next').disabled = state.files.length < 3;
+    $('btnStep4Next').disabled = !done(4);
+    $('btnStep5Next').disabled = !done(5);
+    $('btnStep6Next').disabled = !done(6);
+  }
+
+  function bind() {
+    /* --- 步骤 1 --- */
+    $('btnStep1Next').addEventListener('click', function () { goStep(2); });
+    $('btnWireReset').addEventListener('click', function () {
+      state.wires = []; save(); redrawWires(); updateWireChips(); refreshPills(); renderNav();
+      toast('已清空接线');
+    });
+
+    /* --- 步骤 2 --- */
+    $('freqRange').addEventListener('input', onParamChange);
+    $('dutyRange').addEventListener('input', onParamChange);
+    $('btnParamReset').addEventListener('click', function () {
+      $('freqRange').value = 2700; $('dutyRange').value = 50; calcParams();
+    });
+    $('btnParamConfirm').addEventListener('click', function () {
+      state.params.confirmed = true; save();
+      $('btnParamConfirm').style.display = 'none';
+      $('btnStep2Next').style.display = '';
+      renderNav(); refreshPills();
+      toast('参数已确定：' + state.params.freq + 'Hz / ' + state.params.duty + '%', 'good');
+    });
+    $('btnStep2Next').addEventListener('click', function () { goStep(3); });
+
+    /* --- 步骤 3 --- */
+    document.querySelectorAll('[data-create]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        createFile(b.dataset.create);
+        toast('已创建 ' + b.dataset.create);
+      });
+    });
+    document.querySelectorAll('.row[data-file]').forEach(function (r) {
+      r.addEventListener('click', function () { showFile(r.dataset.file); });
+    });
+    $('btnCreateAll').addEventListener('click', function () {
+      ['beep.c', 'BUILD.gn', 'app/BUILD.gn'].forEach(function (f) { createFile(f); });
+      toast('工程框架已生成（3 个文件）', 'good');
+    });
+    $('btnStep3Next').addEventListener('click', function () { goStep(4); });
+
+    /* --- 步骤 4 --- */
+    var ta = $('code');
+    ta.addEventListener('input', function () { state.code = ta.value; syncGutter(); });
+    ta.addEventListener('scroll', function () { $('gutter').scrollTop = ta.scrollTop; });
+    ta.addEventListener('keydown', function (e) {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        var s = ta.selectionStart, epos = ta.selectionEnd;
+        ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(epos);
+        ta.selectionStart = ta.selectionEnd = s + 4;
+        state.code = ta.value; syncGutter();
+      }
+    });
+    $('btnSubmit').addEventListener('click', doSubmit);
+    $('btnFillRef').addEventListener('click', function () {
+      ta.value = REF_CODE; state.code = REF_CODE; syncGutter();
+      toast('已填入参考实现，请核对后提交');
+    });
+    $('btnResetCode').addEventListener('click', function () {
+      ta.value = ''; state.code = ''; syncGutter(); $('checkPanel').classList.remove('show');
+      errLines = {};
+      toast('编辑器已清空');
+    });
+    $('btnSaveDraft').addEventListener('click', function () {
+      state.code = ta.value; save(); toast('草稿已保存到本地');
+    });
+    $('btnStep4Next').addEventListener('click', function () { goStep(5); });
+
+    /* --- 步骤 5 --- */
+    $('btnCompile').addEventListener('click', doCompile);
+    $('btnStep5Next').addEventListener('click', function () { goStep(6); });
+
+    /* --- 步骤 6 --- */
+    $('btnFlash').addEventListener('click', doFlash);
+    $('btnStep6Next').addEventListener('click', function () { goStep(7); });
+
+    /* --- 步骤 7 --- */
+    $('btnBeep').addEventListener('click', runOnce);
+    $('btnBeepLoop').addEventListener('click', toggleLoop);
+    $('btnStep7Next').addEventListener('click', function () { goStep(8); });
+    $('btnGoCompile').addEventListener('click', function () {
+      if (done(4)) goStep(5); else goStep(4);
+    });
+
+    /* --- 步骤 8 --- */
+    $('btnPrint').addEventListener('click', function () { window.print(); });
+
+    /* --- 其它 --- */
+    $('btnResetAll').addEventListener('click', function () {
+      if (!confirm('确定要清空全部实训进度吗？代码与记录都会重置。')) return;
+      localStorage.removeItem(STORE_KEY);
+      location.reload();
+    });
+    window.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { selPort = null; markSel(); }
+    });
+  }
+
+  function tick() {
+    var s = Math.floor((Date.now() - state.startAt) / 1000);
+    var h = String(Math.floor(s / 3600)).padStart(2, '0');
+    var m = String(Math.floor(s % 3600 / 60)).padStart(2, '0');
+    var sec = String(s % 60).padStart(2, '0');
+    $('clock').textContent = '用时 ' + h + ':' + m + ':' + sec;
+  }
+
+  function init() {
+    load();
+    bind();
+    initWiring();
+    calcParams();
+    syncGutter();
+    restore();
+    state.params.confirmed = done(2);
+    state.submitted = state.submitted || false;
+    renderNav();
+    refreshPills();
+    goStep(Math.min(state.step || 1, 8));
+    setInterval(tick, 1000); tick();
+    if (state.files.length === 3) showFile('beep.c');
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+
+})();
+</script>
+</body>
+</html>
